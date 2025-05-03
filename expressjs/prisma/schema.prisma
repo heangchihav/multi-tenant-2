@@ -1,0 +1,168 @@
+// Prisma schema for multi-tenant SaaS with dynamic template websites and Cloudflare DNS integration
+
+// Generator for Prisma Client
+// ------------------------------------
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Datasource configuration (PostgreSQL assumed)
+// ------------------------------------
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Main Merchant entity
+// ------------------------------------
+model Merchant {
+  id                 String              @id @default(uuid())
+  name               String              @unique
+  users              User[] // Staff users
+  cloudflareAccounts CloudflareAccount[]
+  websites           Website[] // All websites owned by this merchant
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+// Each client website instance
+// ------------------------------------
+model Website {
+  id         String          @id @default(uuid())
+  merchantId String
+  merchant   Merchant        @relation(fields: [merchantId], references: [id])
+  templateId String
+  template   Template        @relation(fields: [templateId], references: [id])
+  label      String // Optional display name (e.g. My Main Store)
+  isActive   Boolean         @default(true)
+  domains    WebsiteDomain[] // Domains connected to this website
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}
+
+
+// Website-to-domain mapping (subdomain or full custom domain)
+// ------------------------------------
+model WebsiteDomain {
+  id        String  @id @default(uuid())
+  websiteId String
+  website   Website @relation(fields: [websiteId], references: [id])
+
+  domainId String
+  domain   Domain @relation(fields: [domainId], references: [id])
+
+  subdomain String? // Optional if full domain is used
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([domainId, subdomain])
+  @@index([websiteId])
+}
+
+
+// Registered domain owned by Cloudflare account
+// ------------------------------------
+model Domain {
+  id                  String            @id @default(uuid())
+  name                String            @unique // e.g. topmicro.com
+  ns1                 String
+  ns2                 String
+  status              DomainStatus      @default(PENDING)
+  cloudflareAccountId String
+  cloudflareAccount   CloudflareAccount @relation(fields: [cloudflareAccountId], references: [id])
+  addedById           Int
+  addedBy             User              @relation("AddedBy", fields: [addedById], references: [id])
+  connectedWebsites   WebsiteDomain[] // Mappings to websites
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @default(now())
+}
+
+// Website template options to choose from
+// ------------------------------------
+model Template {
+  id        String    @id @default(uuid())
+  name      String    @unique // e.g. portfolio, ecommerce
+  label     String // Friendly display name
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  Website   Website[]
+}
+
+
+// Staff User per Merchant
+// ------------------------------------
+model User {
+  id            Int            @id @default(autoincrement())
+  merchantId    String // FK to Merchant
+  merchant      Merchant       @relation(fields: [merchantId], references: [id])
+  name          String?
+  username      String?        @unique
+  passwordHash  String?
+  googleId      String?        @unique
+  email         String?        @unique
+  role          Role           @default(USER)
+  refreshTokens RefreshToken[]
+  addedDomains  Domain[]       @relation("AddedBy")
+  allowedAccess AllowedAccess?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model AllowedAccess {
+  id                    String   @id @default(uuid())
+  whitelistedIPs        String[] @default([])
+  blacklistedIPs        String[] @default([])
+  whitelistedCountries  String[] @default([])
+  blacklistedCountries  String[] @default([])
+  whitelistedUserAgents String[] @default([])
+  blacklistedUserAgents String[] @default([])
+  whitelistedOS         String[] @default([])
+  blacklistedOS         String[] @default([])
+  userId                Int      @unique // FK to User (One-to-One)
+  user                  User     @relation(fields: [userId], references: [id])
+}
+
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  deviceName String? // e.g., "iPhone 12", "Samsung Galaxy S21"
+  deviceType String? // e.g., "mobile", "desktop"
+  browser    String? // e.g., "Chrome", "Safari"
+  os         String? // e.g., "iOS 14", "Windows 10"
+  ip         String? // IP address
+  createdAt  DateTime @default(now())
+}
+enum Role {
+  ADMIN
+  USER
+}
+
+
+// Cloudflare account config for domain handling
+// ------------------------------------
+model CloudflareAccount {
+  id         String   @id @default(uuid())
+  accountId  String   @unique
+  apiKey     String
+  tunnelId   String? // Optional for backward compatibility
+  domains    Domain[]
+  merchantId String // FK to Merchant (Required)
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now())
+}
+
+
+// Enum for domain status tracking
+// ------------------------------------
+enum DomainStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+}
+
+

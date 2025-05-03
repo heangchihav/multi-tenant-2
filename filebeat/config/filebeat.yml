@@ -1,0 +1,31 @@
+filebeat.inputs:
+  - type: filestream
+    enabled: true
+    paths:
+      - /app/logs/*.log
+
+output.logstash:
+  hosts: ["logstash:5044"]
+  ssl:
+    enabled: true
+    certificate_authorities: ["/usr/share/filebeat/config/certs/ca/ca.crt"]
+    verification_mode: "full"
+
+setup.kibana:
+  host: "https://kibana:5601"
+  ssl:
+    enabled: true
+    certificate_authorities: ["/usr/share/filebeat/config/certs/ca/ca.crt"]
+    verification_mode: "full"
+
+setup.template.settings:
+  index.number_of_shards: 1
+
+logging:
+  level: info
+  to_files: true
+  files:
+    path: /usr/share/filebeat/logs
+    name: filebeat
+    keepfiles: 7
+    permissions: 0644
