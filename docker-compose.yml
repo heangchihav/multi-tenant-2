@@ -54,7 +54,7 @@ services:
       - ./frontend/templates:/app/templates:ro
       - ./frontend/websites:/app/websites:rw
     user: root
-    command: bash -c "mkdir -p /app/tenant-configs && chmod 777 /app/tenant-configs && node dist/server.js"
+    command: ["node", "-r", "module-alias/register", "dist/server.js"]
     deploy:
       resources:
         limits:
@@ -117,7 +117,9 @@ services:
       timeout: 10s
       retries: 3
   nginx:
-    image: nginx:latest
+    build:
+      context: ./infra/nginx
+      dockerfile: Dockerfile
     container_name: nginx
     depends_on:
       - expressjs
@@ -138,8 +140,7 @@ services:
       - NGINX_ENVSUBST_TEMPLATE_DIR=/etc/nginx/templates
       - NGINX_ENVSUBST_TEMPLATE_SUFFIX=.conf.template
       - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
-    # Don't try to change permissions on read-only volume
-    command: nginx -g 'daemon off;'
+    # The entrypoint script handles Nginx startup and config reloading
     ulimits:
       nofile:
         soft: 65536

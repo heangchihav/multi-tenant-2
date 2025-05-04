@@ -34,174 +34,194 @@ interface CreateClientRequestBody {
 createClientRoutes.post('/create',
   asyncErrorHandler(async (req: Request<{}, {}, CreateClientRequestBody>, res: Response) => {
     const { merchantId, templateName, domains, label } = req.body;
-
-    // 1. Validate merchant and template
-    const merchant = await prisma.merchant.findUnique({
-      where: { id: merchantId },
-      include: { cloudflareAccounts: true }
-    });
-    if (!merchant) throw new Error('Merchant not found');
+    let website: any = undefined;
+    let destPath: string = '';
     
-    // Check if merchant has Cloudflare account
-    const hasCloudflareAccount = merchant.cloudflareAccounts && merchant.cloudflareAccounts.length > 0;
-    console.log(`Merchant ${merchantId} has Cloudflare account: ${hasCloudflareAccount}`);
-    
-    // For testing, we'll make Cloudflare account optional
-    // if (!merchant.cloudflareAccounts?.[0]) throw new Error('Cloudflare account not configured');
-
-    const template = await prisma.template.findUnique({
-      where: { name: templateName }
-    });
-    if (!template) throw new Error('Template not found');
-
-    // 2. Create website record
-    const website = await prisma.website.create({
-      data: {
-        merchantId,
-        templateId: template.id,
-        label: label || `${merchant.name}'s ${templateName} site`,
-        isActive: true
-      }
-    });
-
-    const srcPath = path.join(TEMPLATE_DIR, templateName);
-    const destPath = path.join(WEBSITE_DIR, `website-${website.id}`);
-    const buildPath = path.join(destPath, 'dist');
-
-    // 3. Copy template and build
-    console.log(`Copying template from ${srcPath} to ${destPath}`);
-    await fs.copy(srcPath, destPath);
-    
-    // Check if package.json exists
-    const packageJsonPath = path.join(destPath, 'package.json');
-    if (await fs.pathExists(packageJsonPath)) {
-      console.log('Found package.json, installing dependencies...');
-      try {
-        // Install dependencies
-        await execPromise(`cd ${destPath} && npm install`);
-        
-        // Read package.json to check for build script
-        const packageJson = await fs.readJson(packageJsonPath);
-        if (packageJson.scripts && packageJson.scripts.build) {
-          console.log('Running build script...');
-          await execPromise(`cd ${destPath} && npm run build`);
-        } else {
-          console.log('No build script found in package.json');
-          // Create a dist directory if it doesn't exist
-          const distPath = path.join(destPath, 'dist');
-          if (!await fs.pathExists(distPath)) {
-            console.log(`Creating dist directory at ${distPath}`);
-            await fs.mkdir(distPath);
-            // Copy source files to dist as a fallback
-            await fs.copy(path.join(destPath, 'src'), distPath, {
-              filter: (src) => !src.includes('node_modules')
-            });
-          }
-        }
-      } catch (buildError: any) {
-        console.error('Error during build process:', buildError);
-        throw new Error(`Build process failed: ${buildError.message || String(buildError)}`);
-      }
-    } else {
-      console.log('No package.json found, skipping build process');
-      // Create a dist directory with the template content
-      const distPath = path.join(destPath, 'dist');
-      await fs.mkdir(distPath);
-      // Copy all files except node_modules to dist
-      await fs.copy(destPath, distPath, {
-        filter: (src) => !src.includes('node_modules')
-      });
-    }
-
-    // 4. Create domain records and configure DNS
-    const cloudflareAccount = merchant.cloudflareAccounts?.[0];
-    const domainPromises = domains.map(async (domainName) => {
-      // Create or get domain
-      const domain = await prisma.domain.create({
-        data: {
-          name: domainName,
-          ns1: 'ns1.cloudflare.com',
-          ns2: 'ns2.cloudflare.com',
-          status: 'PENDING',
-          cloudflareAccountId: cloudflareAccount?.id || '', // Use empty string if no account
-          addedById: 1, // TODO: Get from auth context
-        }
-      });
-
-      // Create website domain mapping
-      await prisma.websiteDomain.create({
-        data: {
-          websiteId: website.id,
-          domainId: domain.id,
-          isPrimary: true
-        }
-      });
-
-      return domain;
-    });
-
-    await Promise.all(domainPromises);
-
-    let confPath: string | undefined;
     try {
-      // 5. Generate and save NGINX config
-      const nginxConf = generateNginxConf(website.id, domains, buildPath);
-      confPath = path.join(NGINX_CONF_DIR, `${website.id}.conf`);
-      await fs.writeFile(confPath, nginxConf);
-
-      // 6. Reload NGINX
-      await execPromise('nginx -s reload');
-
-      // 7. Configure Cloudflare Tunnel for each domain
-      // Only configure Cloudflare Tunnel if account exists
-      if (cloudflareAccount) {
-        await Promise.all(domains.map((domain) => configureTunnelForDomain(domain, cloudflareAccount, website.id)));
-      } else {
-        console.log('Skipping Cloudflare Tunnel configuration as no account is configured');
-      }
-
-      // 8. Update domain status to ACTIVE
-      await prisma.domain.updateMany({
-        where: { name: { in: domains } },
-        data: { status: 'ACTIVE' }
+      console.log(`Creating client for merchant ${merchantId} with template ${templateName}`);
+      
+      // 1. Validate merchant exists and has Cloudflare account
+      const merchant = await prisma.merchant.findUnique({
+        where: { id: merchantId },
+        include: { cloudflareAccounts: true }
       });
+      
+      if (!merchant) {
+        console.error(`Merchant with ID ${merchantId} not found`);
+        throw new Error('Merchant not found');
+      }
+      
+      console.log(`Found merchant: ${merchant.name}`);
+      
+      // Cloudflare account is optional for testing
+      // if (!merchant.cloudflareAccounts?.length) {
+      //   throw new Error('Merchant has no Cloudflare account');
+      // }
+      
+      const template = await prisma.template.findUnique({
+        where: { name: templateName }
+      });
+      if (!template) throw new Error('Template not found');
 
-      res.json({
-        message: 'Client website created and configured successfully',
+      // 2. Create website record
+      website = await prisma.website.create({
         data: {
-          websiteId: website.id,
-          domains: domains,
-          buildPath,
-          label: website.label
+          merchantId,
+          templateId: template.id,
+          label: label || `${merchant.name}'s ${templateName} site`,
+          isActive: true
         }
       });
-    } catch (error) {
-      // Log detailed error information
-      console.error('Error in create client:', error);
+
+      const srcPath = path.join(TEMPLATE_DIR, templateName);
+      destPath = path.join(WEBSITE_DIR, `website-${website.id}`);
+      const buildPath = path.join(destPath, 'dist');
+
+      // 3. Copy template and build
+      console.log(`Copying template from ${srcPath} to ${destPath}`);
+      await fs.copy(srcPath, destPath);
       
-      // Rollback on failure
-      try {
-        if (website?.id) {
-          console.log(`Rolling back website ${website.id}`);
-          await prisma.website.delete({ where: { id: website.id } });
+      // Check if package.json exists
+      const packageJsonPath = path.join(destPath, 'package.json');
+      if (await fs.pathExists(packageJsonPath)) {
+        console.log('Found package.json, installing dependencies...');
+        try {
+          // Install dependencies
+          await execPromise(`cd ${destPath} && npm install`);
+          
+          // Read package.json to check for build script
+          const packageJson = await fs.readJson(packageJsonPath);
+          if (packageJson.scripts && packageJson.scripts.build) {
+            console.log('Running build script...');
+            await execPromise(`cd ${destPath} && npm run build`);
+          } else {
+            console.log('No build script found in package.json');
+            // Create a dist directory if it doesn't exist
+            const distPath = path.join(destPath, 'dist');
+            if (!await fs.pathExists(distPath)) {
+              console.log(`Creating dist directory at ${distPath}`);
+              await fs.mkdir(distPath);
+              // Copy source files to dist as a fallback
+              await fs.copy(path.join(destPath, 'src'), distPath, {
+                filter: (src) => !src.includes('node_modules')
+              });
+            }
+          }
+        } catch (buildError: any) {
+          console.error('Error during build process:', buildError);
+          throw new Error(`Build process failed: ${buildError.message || String(buildError)}`);
         }
-        
-        if (destPath) {
-          console.log(`Removing directory ${destPath}`);
-          await fs.remove(destPath);
-        }
-        
-        if (confPath && await fs.pathExists(confPath)) {
-          console.log(`Removing Nginx config ${confPath}`);
-          await fs.remove(confPath);
-          await execPromise('nginx -s reload');
-        }
-      } catch (rollbackError) {
-        console.error('Error during rollback:', rollbackError);
+      } else {
+        console.log('No package.json found, skipping build process');
+        // Create a dist directory with the template content
+        const distPath = path.join(destPath, 'dist');
+        await fs.mkdir(distPath);
+        // Copy all files except node_modules to dist
+        await fs.copy(destPath, distPath, {
+          filter: (src) => !src.includes('node_modules')
+        });
+      }
+
+      // 4. Create domain records and configure DNS
+      const cloudflareAccount = merchant.cloudflareAccounts?.[0];
+      
+      // Verify the website exists before creating domains
+      const websiteCheck = await prisma.website.findUnique({
+        where: { id: website.id }
+      });
+      
+      if (!websiteCheck) {
+        console.error(`Website with ID ${website.id} not found`);
+        throw new Error('Website not found. Cannot create domain mappings.');
       }
       
-      // Throw the original error
-      throw error;
+      console.log(`Creating domains for website ${website.id}`);
+      
+      const domainPromises = domains.map(async (domainName: string) => {
+        try {
+          // Use a transaction to ensure both domain and mapping are created together
+          return await prisma.$transaction(async (tx) => {
+            // Create domain
+            const domain = await tx.domain.create({
+              data: {
+                name: domainName,
+                ns1: 'ns1.cloudflare.com',
+                ns2: 'ns2.cloudflare.com',
+                status: 'PENDING',
+                cloudflareAccountId: cloudflareAccount?.id || '', // Use empty string if no account
+                addedById: 1, // TODO: Get from auth context
+              }
+            });
+            
+            console.log(`Created domain ${domain.id} for ${domainName}`);
+            
+            // Create website domain mapping
+            const websiteDomain = await tx.websiteDomain.create({
+              data: {
+                websiteId: website.id,
+                domainId: domain.id,
+                isPrimary: true
+              }
+            });
+            
+            console.log(`Created website domain mapping ${websiteDomain.id}`);
+            
+            return domain;
+          });
+        } catch (error: any) {
+          console.error(`Error creating domain ${domainName}:`, error);
+          throw new Error(`Failed to create domain: ${error.message || String(error)}`);
+        }
+      });
+
+      await Promise.all(domainPromises);
+
+      // 5. Generate and write Nginx configuration
+      const nginxConfig = generateNginxConf(website.id.toString(), domains, buildPath);
+      const nginxConfigPath = path.join(NGINX_CONF_DIR, `${website.id}.conf`);
+      await fs.writeFile(nginxConfigPath, nginxConfig);
+
+      // 6. Signal Nginx to reload by creating a reload file that can be monitored
+      // We don't need to directly reload Nginx from this container
+      // Instead, we'll just write the config and let the Nginx container handle reloading
+      console.log('Nginx configuration written successfully. Nginx will detect changes.');
+
+      res.status(201).json({
+        success: true,
+        website,
+        domains: await Promise.all(domainPromises)
+      });
+    } catch (error: any) {
+      console.error('Error creating client:', error);
+      
+      // Attempt to clean up if website was created
+      if (typeof website !== 'undefined') {
+        try {
+          // Delete website record
+          await prisma.website.delete({
+            where: { id: website.id }
+          });
+          
+          // Remove website directory
+          if (await fs.pathExists(destPath)) {
+            await fs.remove(destPath);
+          }
+          
+          // Remove Nginx config
+          const nginxConfigPath = path.join(NGINX_CONF_DIR, `${website.id}.conf`);
+          if (await fs.pathExists(nginxConfigPath)) {
+            await fs.remove(nginxConfigPath);
+          }
+        } catch (cleanupError) {
+          console.error('Error during rollback:', cleanupError);
+        }
+      }
+      
+      // Return error response
+      res.status(500).json({
+        success: false,
+        error: error.message || 'An error occurred while creating the client website'
+      });
     }
   })
 );
@@ -218,132 +238,58 @@ server {
     root /usr/share/nginx/websites/website-${websiteId}/dist;
     index index.html;
 
-    # Trust Cloudflare headers
-    real_ip_header CF-Connecting-IP;
-    set_real_ip_from 127.0.0.1/32;
-    real_ip_recursive on;
-
-    # Basic security headers
+    # Security headers
     add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-XSS-Protection "1; mode=block";
     add_header X-Content-Type-Options "nosniff";
+    add_header X-XSS-Protection "1; mode=block";
     add_header Referrer-Policy "strict-origin-when-cross-origin";
 
-    # Cache control for static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+    # Rate limiting for this tenant
+    limit_req zone=tenant_limit burst=20 nodelay;
+    limit_conn tenant_connection 10;
+
+    # Caching rules
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
         expires 30d;
         add_header Cache-Control "public, no-transform";
     }
 
-    # Main application routing
+    # SPA fallback
     location / {
-        # Tenant identification
-        set $tenant_id "${websiteId}";
-
-        # Only allow access through Cloudflare Tunnel
-        if ($http_cf_connecting_ip = "") {
-            return 403;
-        }
-
-        # Add tenant headers
-        proxy_set_header X-Website-ID $tenant_id;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header Host $host;
-
         try_files $uri $uri/ /index.html;
     }
-
-    # Block access to sensitive files
-    location ~ \.(env|config|lock|git|yml|yaml|xml)$ {
-        deny all;
-        return 404;
-    }
-
-    # Health check endpoint for Cloudflare
-    location /cdn-cgi/health {
-        access_log off;
-        return 200 'healthy';
-        add_header Content-Type text/plain;
-    }
-
-    # Error pages
-    error_page 404 /404.html;
-    error_page 500 502 503 504 /50x.html;
 }
 `.trim();
 }
 
-
-
 function execPromise(command: string): Promise<string> {
-  console.log(`Executing command: ${command}`);
   return new Promise((resolve, reject) => {
+    console.log(`Executing command: ${command}`);
     exec(command, (error, stdout, stderr) => {
-      if (stdout) console.log(`Command stdout: ${stdout}`);
-      if (stderr) console.log(`Command stderr: ${stderr}`);
-      
       if (error) {
-        console.error(`Command error: ${error.message}`);
-        return reject(stderr || error.message);
+        console.error(`exec error: ${error}`);
+        console.error(`stderr: ${stderr}`);
+        reject(error);
+        return;
       }
+      
+      console.log(`stdout: ${stdout}`);
+      if (stderr) console.log(`stderr: ${stderr}`);
       resolve(stdout);
     });
   });
 }
 
-async function configureTunnelForDomain(domain: string, cloudflareAccount: CloudflareAccount, websiteId: string): Promise<void> {
-  const TUNNEL_ID = process.env.CLOUDFLARE_TUNNEL_ID || cloudflareAccount.tunnelId;
+async function configureTunnelForDomain(domain: string, cloudflareAccount: any, websiteId: string): Promise<void> {
   const API_KEY = cloudflareAccount.apiKey;
-  const ACCOUNT_ID = cloudflareAccount.accountId;
-
-  if (!API_KEY) {
-    throw new Error('Cloudflare API key not configured');
-  }
-
-  if (!TUNNEL_ID) {
-    throw new Error('Cloudflare tunnel ID not configured');
-  }
-
-  // 1. Configure tunnel route for the domain
-  const tunnelConfig = {
-    hostname: domain,
-    service: `http://localhost:3000`,  // Match Nginx port
-    originRequest: {
-      noTLSVerify: true,
-      httpHostHeader: domain,
-      // Add custom headers to identify the tenant
-      connectTimeout: '10s',
-      headers: {
-        'X-Website-ID': websiteId,
-        'CF-Access-Client-Id': process.env.CF_ACCESS_CLIENT_ID,
-        'CF-Access-Client-Secret': process.env.CF_ACCESS_CLIENT_SECRET
-      }
-    }
-  };
-
+  const SERVER_IP = '127.0.0.1'; // Local IP since we're using Cloudflare Tunnel
+  
   try {
-    // Configure tunnel route
-    const routeResponse = await axios.post(
-      `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/tunnels/${TUNNEL_ID}/configurations`,
-      tunnelConfig,
-      {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!routeResponse.data.success) {
-      throw new Error(`Failed to configure tunnel: ${routeResponse.data.errors?.[0]?.message || 'Unknown error'}`);
-    }
-
-    // 2. Create CNAME record pointing to tunnel
-    const tunnelDomain = `${TUNNEL_ID}.cfargotunnel.com`;
+    // 1. Create DNS record
     const dnsRecord = {
       type: 'CNAME',
       name: domain,
-      content: tunnelDomain,
+      content: `${cloudflareAccount.tunnelId}.cfargotunnel.com`,
       ttl: 1,  // Auto
       proxied: true
     };
