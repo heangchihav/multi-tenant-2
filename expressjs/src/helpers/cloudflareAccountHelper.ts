@@ -10,7 +10,7 @@ import { User } from "@prisma/client";
  * @param apiKey - Cloudflare API Key (should be stored securely)
  * @returns The created Cloudflare Account
  */
-export async function addCloudflareAccountHelper(user: User, accountId: string, apiKey: string) {
+export async function addCloudflareAccountHelper(user: User, accountId: string, apiKey: string, zoneId: string) {
     if (!user || !user.merchantId) {
         throw new Error("Invalid user or merchant ID.");
     }
@@ -40,6 +40,7 @@ export async function addCloudflareAccountHelper(user: User, accountId: string, 
             merchantId: user.merchantId,
             accountId,
             apiKey: encryptedApiKey, // Store securely
+            zoneId, // Zone ID for the domain
         },
     });
 
