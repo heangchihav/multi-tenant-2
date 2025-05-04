@@ -180,6 +180,16 @@ createClientRoutes.post('/create',
       const nginxConfig = generateNginxConf(website.id.toString(), domains, buildPath);
       const nginxConfigPath = path.join(NGINX_CONF_DIR, `${website.id}.conf`);
       await fs.writeFile(nginxConfigPath, nginxConfig);
+      
+      // Also write to the local directory for visibility on the host machine
+      const localNginxConfigPath = path.join('/app/tenant-configs-local', `${website.id}.conf`);
+      try {
+        await fs.writeFile(localNginxConfigPath, nginxConfig);
+        console.log(`Nginx configuration also written to local directory: ${localNginxConfigPath}`);
+      } catch (error: any) {
+        // Don't fail if we can't write to the local directory
+        console.warn(`Could not write to local directory: ${error.message || String(error)}`);
+      }
 
       // 6. Signal Nginx to reload by creating a reload file that can be monitored
       // We don't need to directly reload Nginx from this container

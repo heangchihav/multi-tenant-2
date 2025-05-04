@@ -1,9 +1,15 @@
 #!/bin/bash
 set -e
 
-# Start Nginx in the background
+# Create necessary directories
+mkdir -p /var/run/nginx
+
+# Start Nginx in the foreground in a separate process
 nginx -g "daemon off;" &
 NGINX_PID=$!
+
+# Save PID to file for proper reloading
+echo $NGINX_PID > /var/run/nginx/nginx.pid
 
 echo "Nginx started with PID: $NGINX_PID"
 echo "Watching for changes in /etc/nginx/tenant.d"
@@ -14,6 +20,7 @@ while true; do
   inotifywait -e create,modify,delete,move -r /etc/nginx/tenant.d
   
   echo "Configuration change detected, reloading Nginx..."
+  # Use the PID we saved
   nginx -s reload
   
   # Small delay to avoid excessive reloads
