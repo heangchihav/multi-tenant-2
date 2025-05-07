@@ -1,15 +1,12 @@
-import { type Request, type Response, Router } from 'express'
+import { type Request, type Response } from 'express'
 import passport from 'passport';
 import { secret } from '@/config/secret';
 
-const googleAuthRoutes: Router = Router();
 
-// Redirect to Google for authentication
-googleAuthRoutes.get('/google', passport.authenticate('google', { scope: ['openid', 'profile', 'email'], session: false }));
+export const googleAuth = passport.authenticate('google', { scope: ['openid', 'profile', 'email'], session: false });
 
-// Google auth callback
-googleAuthRoutes.get('/google/callback',
-    passport.authenticate('google', {
+
+export const authCallBack = [passport.authenticate('google', {
         failureRedirect: '/login',
         session: false
     }),
@@ -34,6 +31,4 @@ googleAuthRoutes.get('/google/callback',
             accessToken: `Bearer ${accessToken}`,
         });
     }
-);
-
-export default googleAuthRoutes;
+]

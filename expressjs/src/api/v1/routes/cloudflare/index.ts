@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { asyncErrorHandler } from '@/middlewares/error/ErrorMiddleware';
-import { addCloudflareAccount } from '@/api/v1/controllers/domain/cloudflareRoutes';
+import { addCloudflareAccount } from '@/api/v1/controllers/cloudflare/addCloudflareAccount';
 
 const cloudflareRoutes: Router = Router();
 

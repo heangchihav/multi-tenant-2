@@ -1,11 +1,19 @@
 import { Router } from "express";
-import authRoutes from "@/api/v1/routes/auth";
-import domainRoutes from "@/api/v1/routes/domain";
-import createClientRoutes from "@/api/v1/routes/createclient/createclient";
+import cloudflareRoutes from "./cloudflare";
+import domainRoutes from "./domain";
+import authRoutes from "./auth";
+import templatesRoutes from "./template";
 
 const v1Router: Router = Router();
 
-v1Router.use("/auth", authRoutes);
-v1Router.use("/domain", domainRoutes);
-v1Router.use("/client",createClientRoutes)
+// auth routes
+v1Router.use("/auth",authRoutes);
+
+// set up domain routes
+v1Router.use("/domain",domainRoutes );
+
+// set up cloudflare
+v1Router.use("/cloudflare",cloudflareRoutes)
+v1Router.use("/template",templatesRoutes)
+
 export default v1Router;

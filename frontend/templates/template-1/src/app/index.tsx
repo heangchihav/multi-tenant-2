@@ -4,8 +4,8 @@ export default function Page() {
   return (
     <View style={styles.container}>
       <View style={styles.main}>
-        <Text style={styles.title}>Hello World</Text>
-        <Text style={styles.subtitle}>This is template 1</Text>
+        <Text style={styles.title}>Hello</Text>
+        <Text style={styles.subtitle}>This is template 1 the will used as client webite</Text>
       </View>
     </View>
   );

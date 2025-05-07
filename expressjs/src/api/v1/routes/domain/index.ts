@@ -1,10 +1,9 @@
 import { Router } from 'express'
-import cloudflareRoutes from '@/api/v1/routes/domain/cloudflared';
-import addDomainRoutes from '@/api/v1/routes/domain/domain';
+import { asyncErrorHandler } from '@/middlewares/error/ErrorMiddleware';
+import { addDomain } from '@/api/v1/controllers/domain/addDomain';
 
 const domainRoutes: Router = Router();
 
-domainRoutes.use(cloudflareRoutes);
-domainRoutes.use(addDomainRoutes);
+domainRoutes.post('/addDomain', asyncErrorHandler(addDomain));
 
 export default domainRoutes;
