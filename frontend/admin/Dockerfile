@@ -13,7 +13,7 @@ RUN npm ci --omit=dev
 COPY . .
 
 # Build Expo static web
-RUN npx expo export --platform web
+RUN npx expo export --platform web --output-dir dist
 
 # Keep container running to serve files
 CMD ["tail", "-f", "/dev/null"]

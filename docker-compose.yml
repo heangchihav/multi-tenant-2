@@ -133,8 +133,8 @@ services:
       - ./infra/nginx/templates:/etc/nginx/templates:ro
       - ./frontend/templates:/usr/share/nginx/templates:ro
       - frontend_build:/usr/share/nginx/html:ro
-      - tenant_configs:/etc/nginx/tenant.d:ro
       - ./frontend/websites:/usr/share/nginx/websites:ro
+      - tenant_configs:/etc/nginx/tenant.d:ro
       # Map tenant.d to local directory for visibility
       - ./infra/nginx/tenant.d:/etc/nginx/tenant.d.local:ro
     ports:
@@ -163,7 +163,6 @@ services:
     container_name: frontend_service
     volumes:
       - ./frontend/admin:/app
-      - /app/node_modules
       - frontend_build:/app/dist
     depends_on:
       - expressjs

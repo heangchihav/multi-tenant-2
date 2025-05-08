@@ -1,11 +1,15 @@
-import { StyleSheet, Text, View } from "react-native";
+import React from 'react';
+import { View, Text, StyleSheet, Button } from 'react-native';
+import { useRouter } from 'expo-router';
 
 export default function Page() {
+  const router = useRouter();
   return (
     <View style={styles.container}>
       <View style={styles.main}>
-        <Text style={styles.title}>Hello</Text>
-        <Text style={styles.subtitle}>This is Backend Dashbord for all client use all together</Text>
+        <Text style={styles.title}>Admin Dashboard</Text>
+        <Button title="Cloudflare Setup" onPress={() => router.push('/cloudflare')} />
+        <Button title="Domain Setup" onPress={() => router.push('/domain')} />
       </View>
     </View>
   );
@@ -14,21 +18,19 @@ export default function Page() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 24,
   },
   main: {
-    flex: 1,
-    justifyContent: "center",
+    width: '100%',
     maxWidth: 960,
-    marginHorizontal: "auto",
+    alignItems: 'center',
   },
   title: {
-    fontSize: 64,
-    fontWeight: "bold",
-  },
-  subtitle: {
-    fontSize: 36,
-    color: "#38434D",
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 24,
+
   },
 });

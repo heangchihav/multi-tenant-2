@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import merchantSetupRoutes from './merchantSetup';
 import websiteSetupRoutes from './websiteSetup';
-import domainManagementRoutes from './domainManagement';
+import domainManagementRoutes from '../domain/domainManagement';
 
 const clientRoutes: Router = Router();
 

@@ -3,6 +3,7 @@ import cloudflareRoutes from "./cloudflare";
 import domainRoutes from "./domain";
 import authRoutes from "./auth";
 import templatesRoutes from "./template";
+import clientRoutes from "./createclient";
 
 const v1Router: Router = Router();
 
@@ -15,5 +16,6 @@ v1Router.use("/domain",domainRoutes );
 // set up cloudflare
 v1Router.use("/cloudflare",cloudflareRoutes)
 v1Router.use("/template",templatesRoutes)
+v1Router.use("/client", clientRoutes);
 
 export default v1Router;
