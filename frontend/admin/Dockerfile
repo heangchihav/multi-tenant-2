@@ -12,8 +12,8 @@ RUN npm ci --omit=dev
 # Copy source files
 COPY . .
 
-# Build Expo static web
+# Build static site into dist at build time
 RUN npx expo export --platform web --output-dir dist
 
-# Keep container running to serve files
+# Keep container alive so named volume stays populated
 CMD ["tail", "-f", "/dev/null"]

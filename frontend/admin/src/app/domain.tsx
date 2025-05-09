@@ -6,7 +6,7 @@ export default function DomainPage() {
 
   const handleSubmit = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/v1/domain/addDomain', {
+      const res = await fetch('/api/v1/domain/addDomain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
