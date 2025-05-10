@@ -1,18 +1,44 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import ProtectedRoute from '../components/ProtectedRoute';
 
 export default function CloudflarePage() {
+  return (
+    <ProtectedRoute>
+      <CloudflareContent />
+    </ProtectedRoute>
+  );
+}
+
+function CloudflareContent() {
   const [accountId, setAccountId] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [tunnelId, setTunnelId] = useState('');
+  const [zoneId, setZoneId] = useState('');
 
   const handleSubmit = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/v1/cloudflare/addcloudflared', {
+      // Get the access token from localStorage
+      const accessToken = localStorage.getItem('accessToken');
+      
+      if (!accessToken) {
+        Alert.alert('Error', 'Authentication token not found. Please log in again.');
+        return;
+      }
+      
+      // Use the full URL to ensure proper routing through Nginx
+      const res = await fetch('http://localhost:80/api/v1/cloudflare/addcloudflared', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ accountId, apiKey, tunnelId }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': accessToken, // Include the access token in the Authorization header
+          // The X-CSRF-TOKEN header will be automatically included from the cookie
+        },
+        credentials: 'include', // This is crucial - it ensures cookies are sent with the request
+        body: JSON.stringify({ 
+          accountId, 
+          apiKey, 
+          zoneId
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -30,7 +56,7 @@ export default function CloudflarePage() {
       <Text style={styles.title}>Cloudflare Setup</Text>
       <TextInput placeholder="Account ID" value={accountId} onChangeText={setAccountId} style={styles.input} />
       <TextInput placeholder="API Key" value={apiKey} onChangeText={setApiKey} style={styles.input} secureTextEntry />
-      <TextInput placeholder="Tunnel ID" value={tunnelId} onChangeText={setTunnelId} style={styles.input} />
+      <TextInput placeholder="Zone ID" value={zoneId} onChangeText={setZoneId} style={styles.input} />
       <Button title="Save" onPress={handleSubmit} />
     </View>
   );

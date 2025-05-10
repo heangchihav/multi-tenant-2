@@ -43,9 +43,6 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis_service:6379
       NODE_ENV: development
-      CLOUDFLARE_TUNNEL_ID: ${TUNNEL_ID}
-      CF_ACCESS_CLIENT_ID: ${CF_ACCESS_CLIENT_ID}
-      CF_ACCESS_CLIENT_SECRET: ${CF_ACCESS_CLIENT_SECRET}
       WEBSITE_PORT: 3000
       MAX_MEMORY: "1024M"
     volumes:
@@ -93,32 +90,7 @@ services:
       nofile:
         soft: 20000
         hard: 40000
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared_tunnel
-    restart: always
-    command: tunnel --config /etc/cloudflared/config.yml run
-    environment:
-      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
-      - TUNNEL_METRICS=:2000
-      - TUNNEL_LOGLEVEL=info
-    volumes:
-      - ./cloudflared:/etc/cloudflared:ro
-    depends_on:
-      nginx:
-        condition: service_healthy
-    networks:
-      - app_network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-    healthcheck:
-      test: ["CMD", "cloudflared", "tunnel", "info"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
+ 
   nginx:
     build:
       context: ./infra/nginx

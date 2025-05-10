@@ -76,7 +76,7 @@ class App {
         configureSecurityMiddlewares(this._app);
 
         // Authentication middlewares
-        // configureAuthMiddlewares(this._app);
+        configureAuthMiddlewares(this._app);
 
         // Static files (after security checks)
         this.configureStaticFiles();

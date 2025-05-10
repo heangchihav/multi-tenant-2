@@ -25,7 +25,7 @@ export const signup = async (req: Request, res: Response) => {
 
   try {
     SignUpSchema.parse(req.body);
-    const { username, password, merchantId } = req.body;
+    const { username, password, merchantId, createMerchant, merchantName } = req.body;
 
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
@@ -42,14 +42,46 @@ export const signup = async (req: Request, res: Response) => {
 
     // Create new user with transaction
     const result = await prisma.$transaction(async (prisma) => {
-      const newUser = await prisma.user.create({
-        data: {
-          merchantId,
-          username,
-          passwordHash,
-          role: "USER",
-        },
-      });
+      // Create the user with the appropriate merchant relation
+      let newUser;
+      
+      if (createMerchant && merchantName) {
+        // For root accounts: Create a new merchant and connect it to the user
+        newUser = await prisma.user.create({
+          data: {
+            username,
+            passwordHash,
+            role: "ADMIN", // Root accounts get ADMIN role
+            merchant: {
+              create: {
+                name: merchantName,
+              }
+            }
+          },
+          include: {
+            merchant: true, // Include merchant details in the response
+          }
+        });
+      } else if (merchantId) {
+        // For sub-accounts: Connect to an existing merchant
+        newUser = await prisma.user.create({
+          data: {
+            username,
+            passwordHash,
+            role: "USER",
+            merchant: {
+              connect: {
+                id: merchantId
+              }
+            }
+          },
+          include: {
+            merchant: true, // Include merchant details in the response
+          }
+        });
+      } else {
+        throw new BadRequestError("Either merchantId or createMerchant with merchantName is required");
+      }
 
       // Create refresh token entry with device details
       const refreshTokenEntry = await prisma.refreshToken.create({
