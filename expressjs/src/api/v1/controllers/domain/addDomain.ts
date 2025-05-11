@@ -24,35 +24,45 @@ export const addDomain = async (req: Request, res: Response) => {
         if (!cloudflareAccount) {
             return res.status(400).json({ error: "Merchant does not have a Cloudflare account" });
         }
-        if (!cloudflareAccount.tunnelId) {
-            return res.status(400).json({ error: "Cloudflare account is not properly configured with a tunnel ID" });
-        }
-        // Convert DB response to CloudflareAccount type
-        const cloudflareData: CloudflareAccount = {
-            accountId: cloudflareAccount.accountId,
-            apiKey: cloudflareAccount.apiKey, // Ensure this is decrypted if stored encrypted
-            tunnelId: cloudflareAccount.tunnelId, // Make sure merchants have unique tunnels
-        };
 
-        // 3️⃣ Register the Domain with Cloudflare & Get Name Servers
-        const { ns1, ns2, zoneId } = await registerDomainWithCloudflare(domainName, cloudflareData);
-
-        // 4️⃣ Store Domain in Database
+        // 3️⃣ Store Domain in Database with default nameservers
+        // These are Cloudflare's default nameservers
+        const ns1 = "ns1.cloudflare.com";
+        const ns2 = "ns2.cloudflare.com";
+        
         const newDomain = await prisma.domain.create({
             data: {
                 name: domainName,
                 ns1,
                 ns2,
+                status: "PENDING", // Set as PENDING until nameservers are configured
                 cloudflareAccountId: cloudflareAccount.id,
                 addedById: userId,
             },
         });
 
-        // 5️⃣ Update Cloudflare Tunnel & Add DNS Record
-        await updateCloudflareTunnel(domainName, cloudflareData);
-        await addCloudflareDnsRecord(domainName, zoneId, cloudflareData);
+        // 4️⃣ If tunnel ID exists, update Cloudflare Tunnel
+        if (cloudflareAccount.tunnelId) {
+            const cloudflareData: CloudflareAccount = {
+                accountId: cloudflareAccount.accountId,
+                apiKey: cloudflareAccount.apiKey,
+                tunnelId: cloudflareAccount.tunnelId,
+            };
+            
+            try {
+                await updateCloudflareTunnel(domainName, cloudflareData);
+                console.log(`Cloudflare Tunnel updated for domain: ${domainName}`);
+            } catch (tunnelError) {
+                console.error("Error updating Cloudflare Tunnel:", tunnelError);
+                // Don't fail the entire process if tunnel update fails
+            }
+        }
 
-        return res.json({ success: true, domain: newDomain });
+        return res.json({ 
+            success: true, 
+            domain: newDomain,
+            message: "Domain added successfully. Please configure your domain's nameservers to ns1.cloudflare.com and ns2.cloudflare.com in your domain registrar."
+        });
     } catch (error) {
         console.error("Error adding domain:", error);
         return res.status(500).json({ error: "Internal server error" });

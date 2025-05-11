@@ -26,24 +26,27 @@ function TemplateContent() {
     fetchTemplates();
   }, []);
 
+  // Import the queued fetch utility
+  const { queuedFetch } = require('../utils/requestQueue');
+
   // Function to fetch templates
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:80/api/v1/template/getTemplates', {
+      // Use queued fetch to prevent token rotation conflicts
+      const data = await queuedFetch('http://localhost:80/api/v1/template/getTemplates', {
         method: 'GET',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch templates');
+      // queuedFetch already handles response status checks
+      if (data && data.data) {
+        setTemplates(data.data || []);
+      } else {
+        throw new Error((data && data.error) || 'Failed to fetch templates');
       }
-
-      const data = await response.json();
-      setTemplates(data.data || []);
     } catch (err) {
       console.error('Error fetching templates:', err);
       setError('Failed to load templates. Please try again later.');
