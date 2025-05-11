@@ -19,28 +19,32 @@ function RegisterContent() {
   const [isRootAccount, setIsRootAccount] = useState(true); // Default to root account
   const [parentMerchantId, setParentMerchantId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
 
   const handleRegister = async () => {
+    // Reset error message
+    setErrorMessage('');
+    
     // Basic validation
     if (!username || !password) {
-      Alert.alert('Error', 'Please enter both username and password');
+      setErrorMessage('Please enter both username and password');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      setErrorMessage('Passwords do not match');
       return;
     }
 
     // Validate merchant information
     if (isRootAccount && !merchantName) {
-      Alert.alert('Error', 'Please enter a merchant name for the root account');
+      setErrorMessage('Please enter a merchant name for the root account');
       return;
     }
 
     if (!isRootAccount && !parentMerchantId) {
-      Alert.alert('Error', 'Please enter a parent merchant ID for the sub-account');
+      setErrorMessage('Please enter a parent merchant ID for the sub-account');
       return;
     }
 
@@ -89,10 +93,15 @@ function RegisterContent() {
           router.replace('/');
         }, 500);
       } else {
-        Alert.alert('Error', data.error || 'Registration failed');
+        // Extract detailed error message from response
+        const errorMsg = data.message || data.error || 
+                        (data.errors && data.errors.length > 0 ? data.errors[0].message : null) ||
+                        'Registration failed';
+        
+        setErrorMessage(errorMsg);
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'An error occurred during registration');
+      setErrorMessage(e.message || 'An error occurred during registration');
     } finally {
       setIsLoading(false);
     }
@@ -101,6 +110,12 @@ function RegisterContent() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Admin Registration</Text>
+      
+      {errorMessage ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      ) : null}
       
       <TextInput
         placeholder="Username"
@@ -189,6 +204,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 24,
     textAlign: 'center',
+  },
+  errorContainer: {
+    backgroundColor: '#ffebee',
+    borderRadius: 4,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#f44336',
+  },
+  errorText: {
+    color: '#d32f2f',
+    fontSize: 14,
   },
   input: {
     borderWidth: 1,

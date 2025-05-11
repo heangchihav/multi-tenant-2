@@ -15,11 +15,15 @@ function LoginContent() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
 
   const handleLogin = async () => {
+    // Reset error message
+    setErrorMessage('');
+    
     if (!username || !password) {
-      Alert.alert('Error', 'Please enter both username and password');
+      setErrorMessage('Please enter both username and password');
       return;
     }
 
@@ -54,10 +58,15 @@ function LoginContent() {
           router.replace('/');
         }, 500);
       } else {
-        Alert.alert('Error', data.error || 'Login failed');
+        // Extract detailed error message from response
+        const errorMsg = data.message || data.error || 
+                        (data.errors && data.errors.length > 0 ? data.errors[0].message : null) ||
+                        'Invalid username or password';
+        
+        setErrorMessage(errorMsg);
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'An error occurred during login');
+      setErrorMessage(e.message || 'An error occurred during login');
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +75,12 @@ function LoginContent() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Admin Login</Text>
+      
+      {errorMessage ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      ) : null}
       
       <TextInput
         placeholder="Username"
@@ -113,6 +128,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 24,
     textAlign: 'center',
+  },
+  errorContainer: {
+    backgroundColor: '#ffebee',
+    borderRadius: 4,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#f44336',
+  },
+  errorText: {
+    color: '#d32f2f',
+    fontSize: 14,
   },
   input: {
     borderWidth: 1,

@@ -26,6 +26,7 @@ export default function RootLayout() {
       <Stack.Screen name="register" />
       <Stack.Screen name="cloudflare" />
       <Stack.Screen name="domain" />
+      <Stack.Screen name="template" />
     </Stack>
   );
 }

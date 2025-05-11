@@ -60,6 +60,9 @@ function DashboardContent() {
         <View style={styles.buttonContainer}>
           <Button title="Domain Setup" onPress={() => router.push('/domain')} />
         </View>
+        <View style={styles.buttonContainer}>
+          <Button title="Template Management" onPress={() => router.push('/template' as any)} />
+        </View>
       </View>
     </View>
   );

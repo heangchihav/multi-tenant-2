@@ -134,8 +134,7 @@ services:
       dockerfile: Dockerfile
     container_name: frontend_service
     volumes:
-      - ./frontend/admin:/app
-      - frontend_build:/app/dist
+      - frontend_build:/volume-dist
     depends_on:
       - expressjs
     networks:
