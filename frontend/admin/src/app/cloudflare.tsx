@@ -13,7 +13,7 @@ export default function CloudflarePage() {
 function CloudflareContent() {
   const [accountId, setAccountId] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [zoneId, setZoneId] = useState('');
+  const [tunnelId, setTunnelId] = useState('');
 
   const handleSubmit = async () => {
     try {
@@ -36,8 +36,8 @@ function CloudflareContent() {
         credentials: 'include', // This is crucial - it ensures cookies are sent with the request
         body: JSON.stringify({ 
           accountId, 
-          apiKey, 
-          zoneId
+          apiKey,
+          tunnelId
         }),
       });
       const data = await res.json();
@@ -56,7 +56,7 @@ function CloudflareContent() {
       <Text style={styles.title}>Cloudflare Setup</Text>
       <TextInput placeholder="Account ID" value={accountId} onChangeText={setAccountId} style={styles.input} />
       <TextInput placeholder="API Key" value={apiKey} onChangeText={setApiKey} style={styles.input} secureTextEntry />
-      <TextInput placeholder="Zone ID" value={zoneId} onChangeText={setZoneId} style={styles.input} />
+      <TextInput placeholder="Tunnel ID (optional)" value={tunnelId} onChangeText={setTunnelId} style={styles.input} />
       <Button title="Save" onPress={handleSubmit} />
     </View>
   );

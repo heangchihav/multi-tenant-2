@@ -9,7 +9,14 @@ interface Domain {
   ns1: string;
   ns2: string;
   status: string;
+  zoneId?: string;
+  dnsConfigured: boolean;
+  nameserversConfigured: boolean;
+  tunnelConfigured: boolean;
+  verificationErrors?: string;
+  lastVerifiedAt?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export default function DomainPage() {
@@ -177,11 +184,44 @@ function DomainContent() {
                   </View>
                 </View>
                 
+                <View style={styles.configStatusContainer}>
+                  <Text style={styles.configLabel}>Configuration Status:</Text>
+                  <View style={styles.configRow}>
+                    <Text style={styles.configItem}>DNS:</Text>
+                    <View style={[styles.statusBadge, domain.dnsConfigured ? styles.statusActive : styles.statusPending]}>
+                      <Text style={styles.statusText}>{domain.dnsConfigured ? 'Configured' : 'Pending'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.configRow}>
+                    <Text style={styles.configItem}>Nameservers:</Text>
+                    <View style={[styles.statusBadge, domain.nameserversConfigured ? styles.statusActive : styles.statusPending]}>
+                      <Text style={styles.statusText}>{domain.nameserversConfigured ? 'Verified' : 'Pending'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.configRow}>
+                    <Text style={styles.configItem}>Tunnel:</Text>
+                    <View style={[styles.statusBadge, domain.tunnelConfigured ? styles.statusActive : styles.statusPending]}>
+                      <Text style={styles.statusText}>{domain.tunnelConfigured ? 'Configured' : 'Pending'}</Text>
+                    </View>
+                  </View>
+                </View>
+                
+                {domain.verificationErrors && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>Error: {domain.verificationErrors}</Text>
+                  </View>
+                )}
+                
                 <Text style={styles.instructionText}>
                   Configure these nameservers in your domain registrar (e.g., Namecheap) to activate this domain.
                 </Text>
                 
-                <Text style={styles.dateText}>Added on {new Date(domain.createdAt).toLocaleDateString()}</Text>
+                <View style={styles.dateContainer}>
+                  <Text style={styles.dateText}>Added on {new Date(domain.createdAt).toLocaleDateString()}</Text>
+                  {domain.lastVerifiedAt && (
+                    <Text style={styles.dateText}>Last checked: {new Date(domain.lastVerifiedAt).toLocaleString()}</Text>
+                  )}
+                </View>
               </View>
             ))
           )}
@@ -330,11 +370,36 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 14,
   },
+  // New styles for configuration status display
+  configStatusContainer: {
+    marginVertical: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 6,
+    padding: 10,
+  },
+  configLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  configRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  configItem: {
+    fontSize: 13,
+    color: '#555',
+  },
   instructionText: {
     fontSize: 14,
     color: '#666',
     marginBottom: 12,
     fontStyle: 'italic',
+  },
+  dateContainer: {
+    marginTop: 8,
   },
   dateText: {
     fontSize: 12,

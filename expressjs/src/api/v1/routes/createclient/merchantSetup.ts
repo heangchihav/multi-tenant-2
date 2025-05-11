@@ -58,8 +58,8 @@ merchantSetupRoutes.post('/setup',
           data: {
             merchantId: merchant.id,
             accountId: cloudflareAccountId,
-            apiKey: cloudflareApiKey,
-            zoneId: cloudflareZoneId // Required field in the Prisma schema
+            apiKey: cloudflareApiKey
+            // zoneId field has been removed from the CloudflareAccount model
           }
         });
         

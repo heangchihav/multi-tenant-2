@@ -7,15 +7,15 @@ import prisma from "@/libs/prisma";
  * Allows a user to add a Cloudflare account for their merchant
  */
 export const addCloudflareAccount = async (req: Request, res: Response) => {
-    const { accountId, apiKey, zoneId } = req.body;
+    const { accountId, apiKey } = req.body;
     const user = req.user as User; // Ensure user is authenticated
 
-    if (!accountId || !apiKey || !zoneId) {
-        return res.status(400).json({ error: "accountId, apiKey, and zoneId are required." });
+    if (!accountId || !apiKey) {
+        return res.status(400).json({ error: "accountId and apiKey are required." });
     }
 
     try {
-        const cloudflareAccount = await addCloudflareAccountHelper(user, accountId, apiKey, zoneId);
+        const cloudflareAccount = await addCloudflareAccountHelper(user, accountId, apiKey);
         return res.json({ success: true, cloudflareAccount });
     } catch (error) {
         console.error("Error adding Cloudflare account:", error);
@@ -23,7 +23,7 @@ export const addCloudflareAccount = async (req: Request, res: Response) => {
     }
 };
 
-async function addCloudflareAccountHelper(user: User, accountId: string, apiKey: string, zoneId: string) {
+async function addCloudflareAccountHelper(user: User, accountId: string, apiKey: string) {
     if (!user || !user.merchantId) {
         throw new Error("Invalid user or merchant ID.");
     }
@@ -53,7 +53,6 @@ async function addCloudflareAccountHelper(user: User, accountId: string, apiKey:
             merchantId: user.merchantId,
             accountId,
             apiKey: encryptedApiKey, // Store securely
-            zoneId, // Zone ID for the domain
         },
     });
 

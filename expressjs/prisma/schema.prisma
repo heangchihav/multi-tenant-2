@@ -21,6 +21,8 @@ model Merchant {
   users              User[] // Staff users
   cloudflareAccounts CloudflareAccount[]
   websites           Website[] // All websites owned by this merchant
+  domains            Domain[] // Direct relationship to domains for tenant isolation
+  useCloudflareZones Boolean             @default(true) // Feature flag for zone creation
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -39,7 +41,6 @@ model Website {
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 }
-
 
 // Website-to-domain mapping (subdomain or full custom domain)
 // ------------------------------------
@@ -61,7 +62,6 @@ model WebsiteDomain {
   @@index([websiteId])
 }
 
-
 // Registered domain owned by Cloudflare account
 // ------------------------------------
 model Domain {
@@ -70,13 +70,32 @@ model Domain {
   ns1                 String
   ns2                 String
   status              DomainStatus      @default(PENDING)
+  zoneId              String?           // Each domain has its own Cloudflare zone ID
+  dnsConfigured       Boolean           @default(false)
+  nameserversConfigured Boolean         @default(false)
+  tunnelConfigured    Boolean           @default(false)
+  verificationErrors  String?           // Track any verification errors
+  lastVerifiedAt      DateTime?         // When nameservers were last checked
+  
+  // Cloudflare account relationship
   cloudflareAccountId String
   cloudflareAccount   CloudflareAccount @relation(fields: [cloudflareAccountId], references: [id])
+  
+  // User who added the domain
   addedById           Int
   addedBy             User              @relation("AddedBy", fields: [addedById], references: [id])
-  connectedWebsites   WebsiteDomain[] // Mappings to websites
+  
+  // Direct merchant relationship for tenant isolation
+  merchantId          String
+  merchant            Merchant          @relation(fields: [merchantId], references: [id])
+  
+  // Website connections
+  connectedWebsites   WebsiteDomain[]
+  
   createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  
+  @@index([merchantId])
 }
 
 // Website template options to choose from
@@ -89,7 +108,6 @@ model Template {
   updatedAt DateTime  @updatedAt
   Website   Website[]
 }
-
 
 // Staff User per Merchant
 // ------------------------------------
@@ -124,7 +142,6 @@ model AllowedAccess {
   user                  User     @relation(fields: [userId], references: [id])
 }
 
-
 model RefreshToken {
   id         String   @id @default(uuid())
   userId     Int
@@ -136,36 +153,34 @@ model RefreshToken {
   ip         String? // IP address
   createdAt  DateTime @default(now())
 }
+
 enum Role {
   ADMIN
   USER
 }
-
 
 // Cloudflare account config for domain handling
 // ------------------------------------
 model CloudflareAccount {
   id         String   @id @default(uuid())
   accountId  String   // Cloudflare account ID
-  zoneId     String   // Cloudflare zone ID for the domain
   apiKey     String
   tunnelId   String? // Optional for backward compatibility
   domains    Domain[]
   merchantId String // FK to Merchant (Required)
   merchant   Merchant @relation(fields: [merchantId], references: [id])
   createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now())
-
-  @@unique([accountId, zoneId])
+  updatedAt  DateTime @updatedAt
+  
+  @@unique([merchantId, accountId])
 }
-
 
 // Enum for domain status tracking
 // ------------------------------------
 enum DomainStatus {
-  PENDING
-  ACTIVE
-  INACTIVE
+  PENDING        // Initial state when domain is first added
+  CONFIGURING    // DNS and tunnel configuration in progress
+  ACTIVE         // Domain is fully configured and working
+  INACTIVE       // Domain is disabled but kept in system
+  FAILED         // Domain configuration failed
 }
-
-
